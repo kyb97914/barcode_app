@@ -281,7 +281,7 @@
         <h1>바코드 생성</h1>
         <p class="subtitle">
           GitHub Pages에서 바로 사용할 수 있는 바코드 생성기입니다.
-          GS1 DataBar Expanded, 일반 바코드, QR 코드를 모바일과 PC 화면에서 확인할 수 있습니다.
+          일반 바코드와 QR 코드를 모바일과 PC 화면에서 확인할 수 있습니다.
         </p>
       </header>
 
@@ -291,10 +291,10 @@
             <label>
               생성 형식
               <select id="codeType">
-                <option value="gs1-expanded-stacked">GS1 DataBar Expanded Stacked</option>
-                <option value="gs1-expanded">GS1 DataBar Expanded</option>
                 <option value="code128">CODE128 일반 바코드</option>
                 <option value="ean13">EAN-13 일반 바코드</option>
+                <option value="itf14">ITF-14 일반 바코드</option>
+                <option value="code39">CODE39 일반 바코드</option>
                 <option value="qrcode">QR 코드</option>
               </select>
             </label>
@@ -310,14 +310,13 @@
 
             <label class="full">
               입력값
-              <textarea id="barcodeValue" spellcheck="false" autocomplete="off">(01)08801234567893(17)260101(10)LOT123(fnc)(21)SERIAL001</textarea>
+              <textarea id="barcodeValue" spellcheck="false" autocomplete="off">8801234567893</textarea>
             </label>
           </div>
 
           <p class="guide" id="guideText">
-            <strong>GS1 입력 방식</strong>
-            AI는 괄호로 입력하고, FNC1 구분자는 <strong>(fnc)</strong> 또는 <strong>(fnc1)</strong>로 입력하세요.
-            예: <strong>(01)08801234567893(10)LOT123(fnc)(21)SERIAL001</strong>
+            <strong>입력 방식</strong>
+            만들고 싶은 값을 입력한 뒤 생성 형식을 선택하세요. EAN-13은 숫자 12자리 또는 13자리를 입력하면 됩니다.
           </p>
 
           <p class="error" id="errorMessage" role="alert"></p>
@@ -351,42 +350,27 @@
       const canvas = document.querySelector("#barcodeCanvas");
 
       const samples = {
-        "gs1-expanded-stacked": "(01)08801234567893(17)260101(10)LOT123(fnc)(21)SERIAL001",
-        "gs1-expanded": "(01)08801234567893(17)260101(10)LOT123(fnc)(21)SERIAL001",
         code128: "8801234567893",
         ean13: "8801234567893",
+        itf14: "18801234567890",
+        code39: "BARCODE123",
         qrcode: "https://example.com",
       };
 
       const guides = {
-        "gs1-expanded-stacked":
-          "<strong>GS1 DataBar Expanded Stacked</strong>는 모바일 화면에 잘 맞는 줄바꿈형 GS1 Expanded 바코드입니다. AI는 괄호로 입력하고 FNC1 구분자는 <strong>(fnc)</strong>로 입력하세요.",
-        "gs1-expanded":
-          "<strong>GS1 DataBar Expanded</strong>는 PC 화면이나 넓은 라벨에 맞는 가로형 GS1 Expanded 바코드입니다. 긴 값은 모바일에서 좌우 스크롤로 확인됩니다.",
         code128:
           "<strong>CODE128</strong>은 영문, 숫자, 일부 기호를 폭넓게 지원하는 일반 1차원 바코드입니다.",
         ean13:
           "<strong>EAN-13</strong>은 숫자 12자리 또는 13자리를 입력하세요. 체크 digit은 라이브러리가 처리합니다.",
+        itf14:
+          "<strong>ITF-14</strong>는 주로 물류 박스 단위에 쓰는 14자리 숫자 바코드입니다.",
+        code39:
+          "<strong>CODE39</strong>는 영문 대문자, 숫자, 일부 기호를 지원하는 일반 바코드입니다.",
         qrcode:
           "<strong>QR 코드</strong>는 URL, 텍스트, 숫자 등 원하는 값을 입력할 수 있습니다.",
       };
 
       const typeOptions = {
-        "gs1-expanded-stacked": {
-          bcid: "databarexpandedstacked",
-          height: 11,
-          segments: 4,
-          includetext: true,
-          textxalign: "center",
-          filename: "gs1-databar-expanded-stacked.png",
-        },
-        "gs1-expanded": {
-          bcid: "databarexpanded",
-          height: 12,
-          includetext: true,
-          textxalign: "center",
-          filename: "gs1-databar-expanded.png",
-        },
         code128: {
           bcid: "code128",
           height: 18,
@@ -401,6 +385,20 @@
           textxalign: "center",
           filename: "ean13.png",
         },
+        itf14: {
+          bcid: "itf14",
+          height: 18,
+          includetext: true,
+          textxalign: "center",
+          filename: "itf14.png",
+        },
+        code39: {
+          bcid: "code39",
+          height: 18,
+          includetext: true,
+          textxalign: "center",
+          filename: "code39.png",
+        },
         qrcode: {
           bcid: "qrcode",
           eclevel: "M",
@@ -408,99 +406,9 @@
         },
       };
 
-      const gs1TokenPattern = /\((\d{2,4}|fnc1?|FNC1?)\)/g;
-
       function setError(message) {
         errorMessage.textContent = message;
         errorMessage.classList.toggle("visible", Boolean(message));
-      }
-
-      function isGs1Type(type) {
-        return type.startsWith("gs1-expanded");
-      }
-
-      function tokenizeGs1(input) {
-        const compact = input.replace(/\s+/g, "");
-        const tokens = [];
-        let cursor = 0;
-        let match;
-
-        gs1TokenPattern.lastIndex = 0;
-
-        while ((match = gs1TokenPattern.exec(compact)) !== null) {
-          if (match.index > cursor) {
-            tokens.push({ type: "data", value: compact.slice(cursor, match.index) });
-          }
-
-          tokens.push({
-            type: /^fnc1?$/i.test(match[1]) ? "fnc" : "ai",
-            value: match[1].toUpperCase(),
-          });
-          cursor = match.index + match[0].length;
-        }
-
-        if (cursor < compact.length) {
-          tokens.push({ type: "data", value: compact.slice(cursor) });
-        }
-
-        if (!tokens.length || tokens[0].type !== "ai") {
-          throw new Error("GS1 값은 (01)처럼 AI로 시작해야 합니다.");
-        }
-
-        tokens.forEach((token, index) => {
-          const previous = tokens[index - 1];
-          const next = tokens[index + 1];
-
-          if (token.type === "ai" && (!next || next.type !== "data")) {
-            throw new Error(`AI ${token.value} 뒤에 데이터가 필요합니다.`);
-          }
-
-          if (token.type === "data" && (!previous || previous.type !== "ai")) {
-            throw new Error(`데이터 "${token.value}" 앞에 AI가 필요합니다.`);
-          }
-
-          if (token.type === "data" && /[()]/.test(token.value)) {
-            throw new Error("AI는 숫자 2~4자리, 구분자는 (fnc)로 입력하세요.");
-          }
-
-          if (token.type === "fnc" && (!previous || previous.type !== "data" || !next || next.type !== "ai")) {
-            throw new Error("(fnc)는 데이터와 다음 AI 사이에 입력하세요.");
-          }
-        });
-
-        return tokens;
-      }
-
-      function toBwipGs1Text(input) {
-        return tokenizeGs1(input).reduce((text, token) => {
-          if (token.type === "fnc") {
-            return `${text}^029`;
-          }
-
-          if (token.type === "ai") {
-            return `${text}(${token.value})`;
-          }
-
-          return text + token.value;
-        }, "");
-      }
-
-      function normalizeDisplayText(type, input) {
-        if (!isGs1Type(type)) {
-          return input;
-        }
-
-        return tokenizeGs1(input).reduce((text, token) => {
-          if (token.type === "fnc") {
-            return `${text}(FNC)`;
-          }
-
-          if (token.type === "ai") {
-            return `${text}(${token.value})`;
-          }
-
-          return text + token.value;
-        }, "");
       }
 
       function getRenderOptions() {
@@ -512,16 +420,13 @@
           throw new Error("입력값을 작성하세요.");
         }
 
-        const text = isGs1Type(type) ? toBwipGs1Text(rawText) : rawText;
-
         return {
           ...config,
-          text,
+          text: rawText,
           scale: Number(scale.value),
           backgroundcolor: "FFFFFF",
           paddingwidth: 10,
           paddingheight: 10,
-          parsefnc: isGs1Type(type),
         };
       }
 
@@ -549,7 +454,7 @@
           bwipjs.toCanvas(canvas, options);
 
           setError("");
-          resultText.textContent = `생성된 값: ${normalizeDisplayText(codeType.value, barcodeValue.value.trim())}`;
+          resultText.textContent = `생성된 값: ${barcodeValue.value.trim()}`;
           updateDownload(typeOptions[codeType.value].filename);
         } catch (error) {
           const context = canvas.getContext("2d");
