@@ -170,6 +170,8 @@
       }
 
       canvas {
+        display: block;
+        margin: 0 auto;
         max-width: 100%;
         height: auto;
         image-rendering: auto;
@@ -269,8 +271,14 @@
         }
 
         .canvasWrap {
+          justify-content: center;
+          align-content: center;
           min-height: 230px;
           padding: 12px;
+        }
+
+        canvas {
+          justify-self: center;
         }
       }
     </style>
