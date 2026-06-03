@@ -288,8 +288,7 @@
       <header class="header">
         <h1>바코드 생성</h1>
         <p class="subtitle">
-          GitHub Pages에서 바로 사용할 수 있는 바코드 생성기입니다.
-          일반 바코드와 QR 코드를 모바일과 PC 화면에서 확인할 수 있습니다.
+          바코드 생성 페이지 입니다
         </p>
       </header>
 
@@ -304,6 +303,7 @@
                 <option value="itf14">ITF-14 일반 바코드</option>
                 <option value="code39">CODE39 일반 바코드</option>
                 <option value="qrcode">QR 코드</option>
+                <option value="gs1expanded">GS1 Expanded 2~3줄 바코드</option>
               </select>
             </label>
 
@@ -363,6 +363,7 @@
         itf14: "18801234567890",
         code39: "BARCODE123",
         qrcode: "https://example.com",
+        gs1expanded: "010286729000000870032605112359\u001d310300093239200016680\u001d993",
       };
 
       const guides = {
@@ -376,6 +377,8 @@
           "<strong>CODE39</strong>는 영문 대문자, 숫자, 일부 기호를 지원하는 일반 바코드입니다.",
         qrcode:
           "<strong>QR 코드</strong>는 URL, 텍스트, 숫자 등 원하는 값을 입력할 수 있습니다.",
+        gs1expanded:
+          "<strong>GS1 Expanded 2~3줄 바코드</strong>는 입력한 데이터를 GS1 DataBar Expanded Stacked 형태로 생성합니다. 중간 구분자는 실제 FNC1/GS 문자 또는 <strong>(fnc)</strong>로 입력하세요.",
       };
 
       const typeOptions = {
@@ -412,11 +415,86 @@
           eclevel: "M",
           filename: "qr-code.png",
         },
+        gs1expanded: {
+          bcid: "databarexpandedstacked",
+          height: 12,
+          segments: 4,
+          includetext: true,
+          textxalign: "center",
+          parsefnc: true,
+          dontlint: true,
+          filename: "gs1-expanded.png",
+        },
+      };
+
+      const fixedLengthAis = {
+        "00": 18,
+        "01": 14,
+        "02": 14,
+        "11": 6,
+        "12": 6,
+        "13": 6,
+        "15": 6,
+        "16": 6,
+        "17": 6,
+        "20": 2,
       };
 
       function setError(message) {
         errorMessage.textContent = message;
         errorMessage.classList.toggle("visible", Boolean(message));
+      }
+
+      function findAi(segment, index) {
+        const fourDigitAi = segment.slice(index, index + 4);
+        const twoDigitAi = segment.slice(index, index + 2);
+
+        if (/^3[1-6]\d\d$/.test(fourDigitAi)) {
+          return { ai: fourDigitAi, dataLength: 6 };
+        }
+
+        if (fourDigitAi === "7003") {
+          return { ai: fourDigitAi, dataLength: 10 };
+        }
+
+        if (fixedLengthAis[twoDigitAi]) {
+          return { ai: twoDigitAi, dataLength: fixedLengthAis[twoDigitAi] };
+        }
+
+        return { ai: twoDigitAi, dataLength: segment.length - index - 2 };
+      }
+
+      function addGs1AiParentheses(segment) {
+        if (segment.startsWith("(")) {
+          return segment;
+        }
+
+        let index = 0;
+        let formatted = "";
+
+        while (index < segment.length) {
+          const { ai, dataLength } = findAi(segment, index);
+          const dataStart = index + ai.length;
+          const dataEnd = Math.min(dataStart + dataLength, segment.length);
+          const data = segment.slice(dataStart, dataEnd);
+
+          if (!data) {
+            return `${formatted}(${ai})`;
+          }
+
+          formatted += `(${ai})${data}`;
+          index = dataEnd;
+        }
+
+        return formatted;
+      }
+
+      function normalizeGs1ExpandedText(rawText) {
+        return rawText
+          .replace(/\(fnc1?\)/gi, "\u001d")
+          .split(/\u001d|\x1d/)
+          .map(addGs1AiParentheses)
+          .join("^029");
       }
 
       function getRenderOptions() {
@@ -428,14 +506,24 @@
           throw new Error("입력값을 작성하세요.");
         }
 
+        const text = type === "gs1expanded"
+          ? normalizeGs1ExpandedText(rawText)
+          : rawText;
+
         return {
           ...config,
-          text: rawText,
+          text,
           scale: Number(scale.value),
           backgroundcolor: "FFFFFF",
           paddingwidth: 10,
           paddingheight: 10,
         };
+      }
+
+      function getDisplayText() {
+        return barcodeValue.value
+          .trim()
+          .replace(/\u001d|\x1d/g, "(FNC)");
       }
 
       function updateDownload(filename) {
@@ -462,7 +550,7 @@
           bwipjs.toCanvas(canvas, options);
 
           setError("");
-          resultText.textContent = `생성된 값: ${barcodeValue.value.trim()}`;
+          resultText.textContent = `생성된 값: ${getDisplayText()}`;
           updateDownload(typeOptions[codeType.value].filename);
         } catch (error) {
           const context = canvas.getContext("2d");
