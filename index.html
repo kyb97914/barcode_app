@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>바코드 생성</title>
+    <script src="https://cdn.jsdelivr.net/npm/bwip-js@4.7.0/dist/bwip-js.min.js"></script>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #eaf7ff;
+        --bg-strong: #c7ebff;
+        --panel: #ffffff;
+        --panel-soft: #f6fcff;
+        --text: #123247;
+        --muted: #526b7d;
+        --line: #a7d8f5;
+        --accent: #159bd6;
+        --accent-dark: #087db2;
+        --accent-soft: #dff5ff;
+        --danger: #b42318;
+        --shadow: 0 20px 60px rgb(31 127 177 / 16%);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        min-width: 320px;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        background:
+          linear-gradient(180deg, var(--bg-strong) 0, var(--bg) 280px, #f7fcff 100%);
+        font-family:
+          ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", sans-serif;
+      }
+
+      main {
+        width: min(980px, calc(100% - 28px));
+        margin: 0 auto;
+        padding: 28px 0 42px;
+      }
+
+      .header {
+        display: grid;
+        gap: 8px;
+        margin-bottom: 20px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(30px, 7vw, 52px);
+        line-height: 1.08;
+        letter-spacing: 0;
+      }
+
+      .subtitle {
+        max-width: 680px;
+        margin: 0;
+        color: var(--muted);
+        font-size: clamp(14px, 2.5vw, 17px);
+        line-height: 1.55;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+      }
+
+      .panel {
+        display: grid;
+        gap: 16px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .fields {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .full {
+        grid-column: 1 / -1;
+      }
+
+      label {
+        display: grid;
+        gap: 7px;
+        min-width: 0;
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      textarea,
+      select,
+      input {
+        width: 100%;
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 12px 13px;
+        color: var(--text);
+        background: #fff;
+        font: inherit;
+      }
+
+      textarea {
+        min-height: 112px;
+        resize: vertical;
+        line-height: 1.45;
+      }
+
+      textarea:focus,
+      select:focus,
+      input:focus {
+        outline: 3px solid rgb(21 155 214 / 20%);
+        border-color: var(--accent);
+      }
+
+      .guide {
+        display: grid;
+        gap: 8px;
+        margin: 0;
+        border: 1px solid #bde6fa;
+        border-radius: 8px;
+        padding: 12px 14px;
+        color: var(--muted);
+        background: var(--accent-soft);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .guide strong {
+        color: var(--text);
+      }
+
+      .preview {
+        display: grid;
+        gap: 12px;
+      }
+
+      .canvasWrap {
+        display: grid;
+        place-items: center;
+        min-height: 260px;
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 16px;
+        background:
+          linear-gradient(45deg, #f7fcff 25%, transparent 25%),
+          linear-gradient(-45deg, #f7fcff 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, #f7fcff 75%),
+          linear-gradient(-45deg, transparent 75%, #f7fcff 75%),
+          #ffffff;
+        background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+        background-size: 16px 16px;
+      }
+
+      canvas {
+        max-width: 100%;
+        height: auto;
+        image-rendering: auto;
+      }
+
+      .resultText {
+        margin: 0;
+        overflow-wrap: anywhere;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .error {
+        display: none;
+        margin: 0;
+        color: var(--danger);
+        font-weight: 800;
+        line-height: 1.45;
+      }
+
+      .error.visible {
+        display: block;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      button,
+      a.button {
+        min-height: 44px;
+        border: 0;
+        border-radius: 8px;
+        padding: 11px 16px;
+        color: #fff;
+        background: var(--accent);
+        font: inherit;
+        font-weight: 900;
+        text-align: center;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      button:hover,
+      a.button:hover {
+        background: var(--accent-dark);
+      }
+
+      .secondary {
+        color: var(--accent-dark);
+        background: #dff5ff;
+      }
+
+      .secondary:hover {
+        background: #c9ecfb;
+      }
+
+      @media (min-width: 880px) {
+        main {
+          padding-top: 46px;
+        }
+
+        .app {
+          grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+          align-items: start;
+        }
+
+        .preview {
+          position: sticky;
+          top: 20px;
+        }
+
+        .canvasWrap {
+          min-height: 420px;
+        }
+      }
+
+      @media (max-width: 640px) {
+        main {
+          width: min(100% - 20px, 980px);
+          padding-top: 22px;
+        }
+
+        .fields {
+          grid-template-columns: 1fr;
+        }
+
+        .panel {
+          padding: 14px;
+        }
+
+        .actions > * {
+          flex: 1 1 150px;
+        }
+
+        .canvasWrap {
+          min-height: 230px;
+          padding: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header class="header">
+        <h1>바코드 생성</h1>
+        <p class="subtitle">
+          GitHub Pages에서 바로 사용할 수 있는 바코드 생성기입니다.
+          GS1 DataBar Expanded, 일반 바코드, QR 코드를 모바일과 PC 화면에서 확인할 수 있습니다.
+        </p>
+      </header>
+
+      <section class="app" aria-label="바코드 생성 도구">
+        <form class="panel" id="barcodeForm">
+          <div class="fields">
+            <label>
+              생성 형식
+              <select id="codeType">
+                <option value="gs1-expanded-stacked">GS1 DataBar Expanded Stacked</option>
+                <option value="gs1-expanded">GS1 DataBar Expanded</option>
+                <option value="code128">CODE128 일반 바코드</option>
+                <option value="ean13">EAN-13 일반 바코드</option>
+                <option value="qrcode">QR 코드</option>
+              </select>
+            </label>
+
+            <label>
+              출력 크기
+              <select id="scale">
+                <option value="2">작게</option>
+                <option value="3" selected>보통</option>
+                <option value="4">크게</option>
+              </select>
+            </label>
+
+            <label class="full">
+              입력값
+              <textarea id="barcodeValue" spellcheck="false" autocomplete="off">(01)08801234567893(17)260101(10)LOT123(fnc)(21)SERIAL001</textarea>
+            </label>
+          </div>
+
+          <p class="guide" id="guideText">
+            <strong>GS1 입력 방식</strong>
+            AI는 괄호로 입력하고, FNC1 구분자는 <strong>(fnc)</strong> 또는 <strong>(fnc1)</strong>로 입력하세요.
+            예: <strong>(01)08801234567893(10)LOT123(fnc)(21)SERIAL001</strong>
+          </p>
+
+          <p class="error" id="errorMessage" role="alert"></p>
+
+          <div class="actions">
+            <button type="submit">생성하기</button>
+            <button class="secondary" id="sampleButton" type="button">예시 입력</button>
+            <a class="button" id="downloadLink" href="#" download="barcode.png">PNG 다운로드</a>
+          </div>
+        </form>
+
+        <section class="panel preview" aria-label="생성 결과">
+          <div class="canvasWrap">
+            <canvas id="barcodeCanvas" aria-label="생성된 바코드"></canvas>
+          </div>
+          <p class="resultText" id="resultText"></p>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const form = document.querySelector("#barcodeForm");
+      const codeType = document.querySelector("#codeType");
+      const scale = document.querySelector("#scale");
+      const barcodeValue = document.querySelector("#barcodeValue");
+      const guideText = document.querySelector("#guideText");
+      const errorMessage = document.querySelector("#errorMessage");
+      const resultText = document.querySelector("#resultText");
+      const sampleButton = document.querySelector("#sampleButton");
+      const downloadLink = document.querySelector("#downloadLink");
+      const canvas = document.querySelector("#barcodeCanvas");
+
+      const samples = {
+        "gs1-expanded-stacked": "(01)08801234567893(17)260101(10)LOT123(fnc)(21)SERIAL001",
+        "gs1-expanded": "(01)08801234567893(17)260101(10)LOT123(fnc)(21)SERIAL001",
+        code128: "8801234567893",
+        ean13: "8801234567893",
+        qrcode: "https://example.com",
+      };
+
+      const guides = {
+        "gs1-expanded-stacked":
+          "<strong>GS1 DataBar Expanded Stacked</strong>는 모바일 화면에 잘 맞는 줄바꿈형 GS1 Expanded 바코드입니다. AI는 괄호로 입력하고 FNC1 구분자는 <strong>(fnc)</strong>로 입력하세요.",
+        "gs1-expanded":
+          "<strong>GS1 DataBar Expanded</strong>는 PC 화면이나 넓은 라벨에 맞는 가로형 GS1 Expanded 바코드입니다. 긴 값은 모바일에서 좌우 스크롤로 확인됩니다.",
+        code128:
+          "<strong>CODE128</strong>은 영문, 숫자, 일부 기호를 폭넓게 지원하는 일반 1차원 바코드입니다.",
+        ean13:
+          "<strong>EAN-13</strong>은 숫자 12자리 또는 13자리를 입력하세요. 체크 digit은 라이브러리가 처리합니다.",
+        qrcode:
+          "<strong>QR 코드</strong>는 URL, 텍스트, 숫자 등 원하는 값을 입력할 수 있습니다.",
+      };
+
+      const typeOptions = {
+        "gs1-expanded-stacked": {
+          bcid: "databarexpandedstacked",
+          height: 11,
+          segments: 4,
+          includetext: true,
+          textxalign: "center",
+          filename: "gs1-databar-expanded-stacked.png",
+        },
+        "gs1-expanded": {
+          bcid: "databarexpanded",
+          height: 12,
+          includetext: true,
+          textxalign: "center",
+          filename: "gs1-databar-expanded.png",
+        },
+        code128: {
+          bcid: "code128",
+          height: 18,
+          includetext: true,
+          textxalign: "center",
+          filename: "code128.png",
+        },
+        ean13: {
+          bcid: "ean13",
+          height: 18,
+          includetext: true,
+          textxalign: "center",
+          filename: "ean13.png",
+        },
+        qrcode: {
+          bcid: "qrcode",
+          eclevel: "M",
+          filename: "qr-code.png",
+        },
+      };
+
+      const gs1TokenPattern = /\((\d{2,4}|fnc1?|FNC1?)\)/g;
+
+      function setError(message) {
+        errorMessage.textContent = message;
+        errorMessage.classList.toggle("visible", Boolean(message));
+      }
+
+      function isGs1Type(type) {
+        return type.startsWith("gs1-expanded");
+      }
+
+      function tokenizeGs1(input) {
+        const compact = input.replace(/\s+/g, "");
+        const tokens = [];
+        let cursor = 0;
+        let match;
+
+        gs1TokenPattern.lastIndex = 0;
+
+        while ((match = gs1TokenPattern.exec(compact)) !== null) {
+          if (match.index > cursor) {
+            tokens.push({ type: "data", value: compact.slice(cursor, match.index) });
+          }
+
+          tokens.push({
+            type: /^fnc1?$/i.test(match[1]) ? "fnc" : "ai",
+            value: match[1].toUpperCase(),
+          });
+          cursor = match.index + match[0].length;
+        }
+
+        if (cursor < compact.length) {
+          tokens.push({ type: "data", value: compact.slice(cursor) });
+        }
+
+        if (!tokens.length || tokens[0].type !== "ai") {
+          throw new Error("GS1 값은 (01)처럼 AI로 시작해야 합니다.");
+        }
+
+        tokens.forEach((token, index) => {
+          const previous = tokens[index - 1];
+          const next = tokens[index + 1];
+
+          if (token.type === "ai" && (!next || next.type !== "data")) {
+            throw new Error(`AI ${token.value} 뒤에 데이터가 필요합니다.`);
+          }
+
+          if (token.type === "data" && (!previous || previous.type !== "ai")) {
+            throw new Error(`데이터 "${token.value}" 앞에 AI가 필요합니다.`);
+          }
+
+          if (token.type === "data" && /[()]/.test(token.value)) {
+            throw new Error("AI는 숫자 2~4자리, 구분자는 (fnc)로 입력하세요.");
+          }
+
+          if (token.type === "fnc" && (!previous || previous.type !== "data" || !next || next.type !== "ai")) {
+            throw new Error("(fnc)는 데이터와 다음 AI 사이에 입력하세요.");
+          }
+        });
+
+        return tokens;
+      }
+
+      function toBwipGs1Text(input) {
+        return tokenizeGs1(input).reduce((text, token) => {
+          if (token.type === "fnc") {
+            return `${text}^029`;
+          }
+
+          if (token.type === "ai") {
+            return `${text}(${token.value})`;
+          }
+
+          return text + token.value;
+        }, "");
+      }
+
+      function normalizeDisplayText(type, input) {
+        if (!isGs1Type(type)) {
+          return input;
+        }
+
+        return tokenizeGs1(input).reduce((text, token) => {
+          if (token.type === "fnc") {
+            return `${text}(FNC)`;
+          }
+
+          if (token.type === "ai") {
+            return `${text}(${token.value})`;
+          }
+
+          return text + token.value;
+        }, "");
+      }
+
+      function getRenderOptions() {
+        const type = codeType.value;
+        const config = typeOptions[type];
+        const rawText = barcodeValue.value.trim();
+
+        if (!rawText) {
+          throw new Error("입력값을 작성하세요.");
+        }
+
+        const text = isGs1Type(type) ? toBwipGs1Text(rawText) : rawText;
+
+        return {
+          ...config,
+          text,
+          scale: Number(scale.value),
+          backgroundcolor: "FFFFFF",
+          paddingwidth: 10,
+          paddingheight: 10,
+          parsefnc: isGs1Type(type),
+        };
+      }
+
+      function updateDownload(filename) {
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            setError("다운로드 이미지를 만들 수 없습니다.");
+            return;
+          }
+
+          if (downloadLink.dataset.url) {
+            URL.revokeObjectURL(downloadLink.dataset.url);
+          }
+
+          const url = URL.createObjectURL(blob);
+          downloadLink.href = url;
+          downloadLink.download = filename;
+          downloadLink.dataset.url = url;
+        }, "image/png");
+      }
+
+      function render() {
+        try {
+          const options = getRenderOptions();
+          bwipjs.toCanvas(canvas, options);
+
+          setError("");
+          resultText.textContent = `생성된 값: ${normalizeDisplayText(codeType.value, barcodeValue.value.trim())}`;
+          updateDownload(typeOptions[codeType.value].filename);
+        } catch (error) {
+          const context = canvas.getContext("2d");
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          resultText.textContent = "";
+          setError(error.message || "바코드를 생성할 수 없습니다. 입력 형식을 확인하세요.");
+        }
+      }
+
+      function updateMode() {
+        const type = codeType.value;
+        guideText.innerHTML = guides[type];
+
+        if (barcodeValue.value.trim() === "" || Object.values(samples).includes(barcodeValue.value.trim())) {
+          barcodeValue.value = samples[type];
+        }
+
+        render();
+      }
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        render();
+      });
+
+      codeType.addEventListener("change", updateMode);
+      scale.addEventListener("change", render);
+      barcodeValue.addEventListener("input", render);
+      sampleButton.addEventListener("click", () => {
+        barcodeValue.value = samples[codeType.value];
+        render();
+      });
+      window.addEventListener("beforeunload", () => {
+        if (downloadLink.dataset.url) {
+          URL.revokeObjectURL(downloadLink.dataset.url);
+        }
+      });
+
+      updateMode();
+    </script>
+  </body>
+</html>
